@@ -34,7 +34,7 @@ The manual is available at:
 |------|--------------|
 | 김성광 | [https://github.com/badapodo](https://github.com/badapodo) |
 | 김경연 | [https://github.com/yomce](https://github.com/yomce) |
-| (팀원 이름) | (팀원 GitHub 주소) |
+| 이시우 | [https://github.com/dltldn333](https://github.com/dltldn333) |
 
 ---
 
