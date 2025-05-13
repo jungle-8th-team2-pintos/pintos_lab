@@ -15,6 +15,9 @@
 #include "userprog/process.h"
 #endif
 
+// 우선순위 정렬 함수 선언
+void insert_list_priority(Thread *t);
+
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
@@ -154,6 +157,19 @@ void thread_print_stats(void) {
            idle_ticks, kernel_ticks, user_ticks);
 }
 
+// 비교 함수
+bool is_high_priority(const struct list_elem *a, const struct list_elem *b,
+                      void *aux) {
+    const Thread *t1 = list_entry(a, Thread, elem);
+    const Thread *t2 = list_entry(b, Thread, elem);
+    return t1->priority > t2->priority; // 순위가 높으면 앞에
+}
+
+// 우선순위대로 스케줄해서 리스트에 넣기
+void insert_list_priority(Thread *t) {
+    list_insert_ordered(&ready_list, &(t->elem), is_high_priority, NULL);
+}
+
 /* Creates a new kernel thread named NAME with the given initial
    PRIORITY, which executes FUNCTION passing AUX as the argument,
    and adds it to the ready queue.  Returns the thread identifier
@@ -196,10 +212,11 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
     t->tf.cs = SEL_KCSEG;
     t->tf.eflags = FLAG_IF;
 
-                        
-
     /* Add to run queue. */
     thread_unblock(t);
+
+    if (t->priority > thread_current()->priority)
+        thread_yield();
 
     return tid;
 }
@@ -232,7 +249,8 @@ void thread_unblock(struct thread *t) {
 
     old_level = intr_disable();
     ASSERT(t->status == THREAD_BLOCKED);
-    list_push_back(&ready_list, &t->elem);
+    insert_list_priority(t);
+    // list_push_back(&ready_list, &t->elem);
     t->status = THREAD_READY;
     intr_set_level(old_level);
 }
@@ -286,14 +304,28 @@ void thread_yield(void) {
 
     old_level = intr_disable();
     if (curr != idle_thread)
-        list_push_back(&ready_list, &curr->elem);
+        // list_push_back(&ready_list, &curr->elem);
+        insert_list_priority(curr);
     do_schedule(THREAD_READY);
     intr_set_level(old_level);
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority) {
+    // int old_priority = thread_current()->priority;
     thread_current()->priority = new_priority;
+    thread_yield();
+
+    // 힘들게 짠 코드의 쓸모가 없어진 거 같다.
+    // 레디 리스트 앞이랑 비교한 후 yield
+    // if (new_priority < old_priority) {
+    //     if (!list_empty(&ready_list)) {
+    //         Thread *high_t =
+    //             list_entry(list_front(&ready_list), struct thread, elem);
+    //         if (high_t->priority > new_priority)
+    //             thread_yield();
+    //     }
+    // }
 }
 
 /* Returns the current thread's priority. */

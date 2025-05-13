@@ -109,6 +109,7 @@ void timer_sleep(int64_t ticks) {
     cur->wakeup_tick = ticks + timer_ticks();
     // list에 넣기
     list_insert_ordered(&sleep_list, &(cur->elem), isEarly, NULL);
+
     // block
     thread_block();
     // 인터럽트 다시 켜기
