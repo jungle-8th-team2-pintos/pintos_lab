@@ -1,0 +1,364 @@
+[33mcommit b112d7ede018de4bff0a95ec5c443cf530a7f003[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeat-priority-dltldn333[m[33m, [m[1;32mfeat-alarm-dltldn333[m[33m)[m
+Author: dltldn333 <dltldn333@gmail.com>
+Date:   Wed May 14 00:19:12 2025 +0900
+
+    feat: 우선순위 스케줄 구현
+
+[1mdiff --git a/devices/log.txt b/devices/log.txt[m
+[1mnew file mode 100644[m
+[1mindex 0000000..e69de29[m
+[1mdiff --git a/devices/timer.c b/devices/timer.c[m
+[1mindex b831144..0e454ad 100644[m
+[1m--- a/devices/timer.c[m
+[1m+++ b/devices/timer.c[m
+[36m@@ -109,6 +109,7 @@[m [mvoid timer_sleep(int64_t ticks) {[m
+     cur->wakeup_tick = ticks + timer_ticks();[m
+     // list에 넣기[m
+     list_insert_ordered(&sleep_list, &(cur->elem), isEarly, NULL);[m
+[32m+[m
+     // block[m
+     thread_block();[m
+     // 인터럽트 다시 켜기[m
+[1mdiff --git a/include/threads/thread.h b/include/threads/thread.h[m
+[1mindex d29238b..b201cc0 100644[m
+[1m--- a/include/threads/thread.h[m
+[1m+++ b/include/threads/thread.h[m
+[36m@@ -1,32 +1,31 @@[m
+ #ifndef THREADS_THREAD_H[m
+ #define THREADS_THREAD_H[m
+ [m
+[32m+[m[32m#include "threads/interrupt.h"[m
+ #include <debug.h>[m
+ #include <list.h>[m
+ #include <stdint.h>[m
+[31m-#include "threads/interrupt.h"[m
+ #ifdef VM[m
+ #include "vm/vm.h"[m
+ #endif[m
+ [m
+[31m-[m
+ /* States in a thread's life cycle. */[m
+ enum thread_status {[m
+[31m-	THREAD_RUNNING,     /* Running thread. */[m
+[31m-	THREAD_READY,       /* Not running but ready to run. */[m
+[31m-	THREAD_BLOCKED,     /* Waiting for an event to trigger. */[m
+[31m-	THREAD_DYING        /* About to be destroyed. */[m
+[32m+[m[32m    THREAD_RUNNING, /* Running thread. */[m
+[32m+[m[32m    THREAD_READY,   /* Not running but ready to run. */[m
+[32m+[m[32m    THREAD_BLOCKED, /* Waiting for an event to trigger. */[m
+[32m+[m[32m    THREAD_DYING    /* About to be destroyed. */[m
+ };[m
+ [m
+ /* Thread identifier type.[m
+    You can redefine this to whatever type you like. */[m
+ typedef int tid_t;[m
+[31m-#define TID_ERROR ((tid_t) -1)          /* Error value for tid_t. */[m
+[32m+[m[32m#define TID_ERROR ((tid_t) - 1) /* Error value for tid_t. */[m
+ [m
+ /* Thread priorities. */[m
+[31m-#define PRI_MIN 0                       /* Lowest priority. */[m
+[31m-#define PRI_DEFAULT 31                  /* Default priority. */[m
+[31m-#define PRI_MAX 63                      /* Highest priority. */[m
+[32m+[m[32m#define PRI_MIN 0      /* Lowest priority. */[m
+[32m+[m[32m#define PRI_DEFAULT 31 /* Default priority. */[m
+[32m+[m[32m#define PRI_MAX 63     /* Highest priority. */[m
+ [m
+ /* A kernel thread or user process.[m
+  *[m
+[36m@@ -86,30 +85,29 @@[m [mtypedef int tid_t;[m
+  * ready state is on the run queue, whereas only a thread in the[m
+  * blocked state is on a semaphore wait list. */[m
+ typedef struct thread {[m
+[31m-	/* Owned by thread.c. */[m
+[31m-	tid_t tid;                          /* Thread identifier. */[m
+[31m-	enum thread_status status;          /* Thread state. */[m
+[31m-	char name[16];                      /* Name (for debugging purposes). */[m
+[31m-	int priority;                       /* Priority. */[m
+[32m+[m[32m    /* Owned by thread.c. */[m
+[32m+[m[32m    tid_t tid;                 /* Thread identifier. */[m
+[32m+[m[32m    enum thread_status status; /* Thread state. */[m
+[32m+[m[32m    char name[16];             /* Name (for debugging purposes). */[m
+[32m+[m[32m    int priority;              /* Priority. */[m
+ [m
+[31m-	int64_t wakeup_tick;[m
+[31m-	[m
+[32m+[m[32m    int64_t wakeup_tick;[m
+ [m
+[31m-	/* Shared between thread.c and synch.c. */[m
+[31m-	struct list_elem elem;              /* List element. */[m
+[32m+[m[32m    /* Shared between thread.c and synch.c. */[m
+[32m+[m[32m    struct list_elem elem; /* List element. */[m
+ [m
+ #ifdef USERPROG[m
+[31m-	/* Owned by userprog/process.c. */[m
+[31m-	uint64_t *pml4;                     /* Page map level 4 */[m
+[32m+[m[32m    /* Owned by userprog/process.c. */[m
+[32m+[m[32m    uint64_t *pml4; /* Page map level 4 */[m
+ #endif[m
+ #ifdef VM[m
+[31m-	/* Table for whole virtual memory owned by thread. */[m
+[31m-	struct supplemental_page_table spt;[m
+[32m+[m[32m    /* Table for whole virtual memory owned by thread. */[m
+[32m+[m[32m    struct supplemental_page_table spt;[m
+ #endif[m
+ [m
+[31m-	/* Owned by thread.c. */[m
+[31m-	struct intr_frame tf;               /* Information for switching */[m
+[31m-	unsigned magic;                     /* Detects stack overflow. */[m
+[32m+[m[32m    /* Owned by thread.c. */[m
+[32m+[m[32m    struct intr_frame tf; /* Information for switching */[m
+[32m+[m[32m    unsigned magic;       /* Detects stack overflow. */[m
+ } Thread;[m
+ [m
+ /* If false (default), use round-robin scheduler.[m
+[36m@@ -117,33 +115,37 @@[m [mtypedef struct thread {[m
+    Controlled by kernel command-line option "-o mlfqs". */[m
+ extern bool thread_mlfqs;[m
+ [m
+[31m-void thread_init (void);[m
+[31m-void thread_start (void);[m
+[32m+[m[32mvoid thread_init(void);[m
+[32m+[m[32mvoid thread_start(void);[m
+[32m+[m
+[32m+[m[32mvoid thread_tick(void);[m
+[32m+[m[32mvoid thread_print_stats(void);[m
+ [m
+[31m-void thread_tick (void);[m
+[31m-void thread_print_stats (void);[m
+[32m+[m[32mtypedef void thread_func(void *aux);[m
+[32m+[m[32mtid_t thread_create(const char *name, int priority, thread_func *, void *);[m
+ [m
+[31m-typedef void thread_func (void *aux);[m
+[31m-tid_t thread_create (const char *name, int priority, thread_func *, void *);[m
+[32m+[m[32mvoid thread_block(void);[m
+[32m+[m[32mvoid thread_unblock(struct thread *);[m
+ [m
+[31m-void thread_block (void);[m
+[31m-void thread_unblock (struct thread *);[m
+[32m+[m[32mstruct thread *thread_current(void);[m
+[32m+[m[32mtid_t thread_tid(void);[m
+[32m+[m[32mconst char *thread_name(void);[m
+ [m
+[31m-struct thread *thread_current (void);[m
+[31m-tid_t thread_tid (void);[m
+[31m-const char *thread_name (void);[m
+[32m+[m[32mvoid thread_exit(void) NO_RETURN;[m
+[32m+[m[32mvoid thread_yield(void);[m
+ [m
+[31m-void thread_exit (void) NO_RETURN;[m
+[31m-void thread_yield (void);[m
+[32m+[m[32mint thread_get_priority(void);[m
+[32m+[m[32mvoid thread_set_priority(int);[m
+ [m
+[31m-int thread_get_priority (void);[m
+[31m-void thread_set_priority (int);[m
+[32m+[m[32mint thread_get_nice(void);[m
+[32m+[m[32mvoid thread_set_nice(int);[m
+[32m+[m[32mint thread_get_recent_cpu(void);[m
+[32m+[m[32mint thread_get_load_avg(void);[m
+ [m
+[31m-int thread_get_nice (void);[m
+[31m-void thread_set_nice (int);[m
+[31m-int thread_get_recent_cpu (void);[m
+[31m-int thread_get_load_avg (void);[m
+[32m+[m[32mvoid do_iret(struct intr_frame *tf);[m
+ [m
+[31m-void do_iret (struct intr_frame *tf);[m
+[32m+[m[32m// 우선순위 비교 함수[m
+[32m+[m[32mbool is_high_priority(const struct list_elem *a, const struct list_elem *b,[m
+[32m+[m[32m                      void *aux);[m
+ [m
+ #endif /* threads/thread.h */[m
+[1mdiff --git a/threads/synch.c b/threads/synch.c[m
+[1mindex fc2499f..3f2988e 100644[m
+[1m--- a/threads/synch.c[m
+[1m+++ b/threads/synch.c[m
+[36m@@ -32,6 +32,9 @@[m
+ #include <stdio.h>[m
+ #include <string.h>[m
+ [m
+[32m+[m[32mbool is_high_priority_sema(const struct list_elem *a, const struct list_elem *b,[m
+[32m+[m[32m                           void *aux);[m
+[32m+[m
+ /* Initializes semaphore SEMA to VALUE.  A semaphore is a[m
+    nonnegative integer along with two atomic operators for[m
+    manipulating it:[m
+[36m@@ -61,10 +64,11 @@[m [mvoid sema_down(struct semaphore *sema) {[m
+ [m
+     ASSERT(sema != NULL);[m
+     ASSERT(!intr_context());[m
+[31m-[m
+     old_level = intr_disable();[m
+     while (sema->value == 0) {[m
+[31m-        list_push_back(&sema->waiters, &thread_current()->elem);[m
+[32m+[m[32m        // list_push_back(&sema->waiters, &thread_current()->elem);[m
+[32m+[m[32m        list_insert_ordered(&sema->waiters, &thread_current()->elem,[m
+[32m+[m[32m                            is_high_priority, NULL);[m
+         thread_block();[m
+     }[m
+     sema->value--;[m
+[36m@@ -101,13 +105,18 @@[m [mvoid sema_up(struct semaphore *sema) {[m
+     enum intr_level old_level;[m
+ [m
+     ASSERT(sema != NULL);[m
+[31m-[m
+     old_level = intr_disable();[m
+[31m-    if (!list_empty(&sema->waiters))[m
+[32m+[m[32m    if (!list_empty(&sema->waiters)) {[m
+[32m+[m
+[32m+[m[32m        list_sort(&sema->waiters, is_high_priority, NULL);[m
+[32m+[m
+         thread_unblock([m
+             list_entry(list_pop_front(&sema->waiters), struct thread, elem));[m
+[32m+[m[32m    }[m
+     sema->value++;[m
+     intr_set_level(old_level);[m
+[32m+[m
+[32m+[m[32m    thread_yield();[m
+ }[m
+ [m
+ static void sema_test_helper(void *sema_);[m
+[36m@@ -256,6 +265,28 @@[m [mvoid cond_init(struct condition *cond) {[m
+    interrupt handler.  This function may be called with[m
+    interrupts disabled, but interrupts will be turned back on if[m
+    we need to sleep. */[m
+[32m+[m
+[32m+[m[32mbool is_high_priority_sema(const struct list_elem *a, const struct list_elem *b,[m
+[32m+[m[32m                           void *aux UNUSED) {[m
+[32m+[m
+[32m+[m[32m    const struct semaphore_elem *sema_elem_a =[m
+[32m+[m[32m        list_entry(a, struct semaphore_elem, elem);[m
+[32m+[m[32m    const struct semaphore_elem *sema_elem_b =[m
+[32m+[m[32m        list_entry(b, struct semaphore_elem, elem);[m
+[32m+[m
+[32m+[m[32m    // waiter가 안 비어도 waiters가 비었을 수도 있네....ㅋㅋㅋㅋ[m
+[32m+[m[32m    // 위치가 여기보다 좋은 곳이 있을 것 같음. 일단 나중에...[m
+[32m+[m[32m    if (list_empty(&sema_elem_a->semaphore.waiters))[m
+[32m+[m[32m        return false;[m
+[32m+[m
+[32m+[m[32m    const struct thread *t1 = list_entry([m
+[32m+[m[32m        list_front(&sema_elem_a->semaphore.waiters), struct thread, elem);[m
+[32m+[m[32m    const struct thread *t2 = list_entry([m
+[32m+[m[32m        list_front(&sema_elem_b->semaphore.waiters), struct thread, elem);[m
+[32m+[m
+[32m+[m[32m    return t1->priority > t2->priority;[m
+[32m+[m[32m}[m
+[32m+[m
+ void cond_wait(struct condition *cond, struct lock *lock) {[m
+     struct semaphore_elem waiter;[m
+ [m
+[36m@@ -265,7 +296,9 @@[m [mvoid cond_wait(struct condition *cond, struct lock *lock) {[m
+     ASSERT(lock_held_by_current_thread(lock));[m
+ [m
+     sema_init(&waiter.semaphore, 0);[m
+[31m-    list_push_back(&cond->waiters, &waiter.elem);[m
+[32m+[m[32m    // list_push_back(&cond->waiters, &waiter.elem);[m
+[32m+[m[32m    list_insert_ordered(&cond->waiters, &waiter.elem, is_high_priority_sema,[m
+[32m+[m[32m                        NULL);[m
+     lock_release(lock);[m
+     sema_down(&waiter.semaphore);[m
+     lock_acquire(lock);[m
+[36m@@ -283,11 +316,12 @@[m [mvoid cond_signal(struct condition *cond, struct lock *lock UNUSED) {[m
+     ASSERT(lock != NULL);[m
+     ASSERT(!intr_context());[m
+     ASSERT(lock_held_by_current_thread(lock));[m
+[31m-[m
+[31m-    if (!list_empty(&cond->waiters))[m
+[32m+[m[32m    if (!list_empty(&cond->waiters)) {[m
+[32m+[m[32m        list_sort(&cond->waiters, is_high_priority_sema, NULL);[m
+         sema_up(&list_entry(list_pop_front(&cond->waiters),[m
+                             struct semaphore_elem, elem)[m
+                      ->semaphore);[m
+[32m+[m[32m    }[m
+ }[m
+ [m
+ /* Wakes up all threads, if any, waiting on COND (protected by[m
+[1mdiff --git a/threads/thread.c b/threads/thread.c[m
+[1mindex 9518a4b..9565d4f 100644[m
+[1m--- a/threads/thread.c[m
+[1m+++ b/threads/thread.c[m
+[36m@@ -15,6 +15,9 @@[m
+ #include "userprog/process.h"[m
+ #endif[m
+ [m
+[32m+[m[32m// 우선순위 정렬 함수 선언[m
+[32m+[m[32mvoid insert_list_priority(Thread *t);[m
+[32m+[m
+ /* Random value for struct thread's `magic' member.[m
+    Used to detect stack overflow.  See the big comment at the top[m
+    of thread.h for details. */[m
+[36m@@ -154,6 +157,19 @@[m [mvoid thread_print_stats(void) {[m
+            idle_ticks, kernel_ticks, user_ticks);[m
+ }[m
+ [m
+[32m+[m[32m// 비교 함수[m
+[32m+[m[32mbool is_high_priority(const struct list_elem *a, const struct list_elem *b,[m
+[32m+[m[32m                      void *aux) {[m
+[32m+[m[32m    const Thread *t1 = list_entry(a, Thread, elem);[m
+[32m+[m[32m    const Thread *t2 = list_entry(b, Thread, elem);[m
+[32m+[m[32m    return t1->priority > t2->priority; // 순위가 높으면 앞에[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// 우선순위대로 스케줄해서 리스트에 넣기[m
+[32m+[m[32mvoid insert_list_priority(Thread *t) {[m
+[32m+[m[32m    list_insert_ordered(&ready_list, &(t->elem), is_high_priority, NULL);[m
+[32m+[m[32m}[m
+[32m+[m
+ /* Creates a new kernel thread named NAME with the given initial[m
+    PRIORITY, which executes FUNCTION passing AUX as the argument,[m
+    and adds it to the ready queue.  Returns the thread identifier[m
+[36m@@ -196,11 +212,12 @@[m [mtid_t thread_create(const char *name, int priority, thread_func *function,[m
+     t->tf.cs = SEL_KCSEG;[m
+     t->tf.eflags = FLAG_IF;[m
+ [m
+[31m-                        [m
+[31m-[m
+     /* Add to run queue. */[m
+     thread_unblock(t);[m
+ [m
+[32m+[m[32m    if (t->priority > thread_current()->priority)[m
+[32m+[m[32m        thread_yield();[m
+[32m+[m
+     return tid;[m
+ }[m
+ [m
+[36m@@ -232,7 +249,8 @@[m [mvoid thread_unblock(struct thread *t) {[m
+ [m
+     old_level = intr_disable();[m
+     ASSERT(t->status == THREAD_BLOCKED);[m
+[31m-    list_push_back(&ready_list, &t->elem);[m
+[32m+[m[32m    insert_list_priority(t);[m
+[32m+[m[32m    // list_push_back(&ready_list, &t->elem);[m
+     t->status = THREAD_READY;[m
+     intr_set_level(old_level);[m
+ }[m
+[36m@@ -286,14 +304,28 @@[m [mvoid thread_yield(void) {[m
+ [m
+     old_level = intr_disable();[m
+     if (curr != idle_thread)[m
+[31m-        list_push_back(&ready_list, &curr->elem);[m
+[32m+[m[32m        // list_push_back(&ready_list, &curr->elem);[m
+[32m+[m[32m        insert_list_priority(curr);[m
+     do_schedule(THREAD_READY);[m
+     intr_set_level(old_level);[m
+ }[m
+ [m
+ /* Sets the current thread's priority to NEW_PRIORITY. */[m
+ void thread_set_priority(int new_priority) {[m
+[32m+[m[32m    // int old_priority = thread_current()->priority;[m
+     thread_current()->priority = new_priority;[m
+[32m+[m[32m    thread_yield();[m
+[32m+[m
+[32m+[m[32m    // 힘들게 짠 코드의 쓸모가 없어진 거 같다.[m
+[32m+[m[32m    // 레디 리스트 앞이랑 비교한 후 yield[m
+[32m+[m[32m    // if (new_priority < old_priority) {[m
+[32m+[m[32m    //     if (!list_empty(&ready_list)) {[m
+[32m+[m[32m    //         Thread *high_t =[m
+[32m+[m[32m    //             list_entry(list_front(&ready_list), struct thread, elem);[m
+[32m+[m[32m    //         if (high_t->priority > new_priority)[m
+[32m+[m[32m    //             thread_yield();[m
+[32m+[m[32m    //     }[m
+[32m+[m[32m    // }[m
+ }[m
+ [m
+ /* Returns the current thread's priority. */[m

@@ -91,6 +91,14 @@ typedef struct thread {
     char name[16];             /* Name (for debugging purposes). */
     int priority;              /* Priority. */
 
+    // 도네이션에서 추가
+    int old_priority;
+    struct list donation_list;
+    struct lock *waiting_lock;
+
+    //도네이션 리스트의 엘리먼트
+    // struct list_elem donation_elem;
+
     int64_t wakeup_tick;
 
     /* Shared between thread.c and synch.c. */

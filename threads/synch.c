@@ -185,7 +185,41 @@ void lock_acquire(struct lock *lock) {
     ASSERT(!intr_context());
     ASSERT(!lock_held_by_current_thread(lock));
 
+    Thread *cur_thread = thread_current();
+    struct lock *l = lock;
+
+    cur_thread->waiting_lock = l;
+
+    // 홀더 존재 + 홀더 보다 큼
+    // 결국 현제 기다린 lock이 -> l
+
+    // 나중에 while로 바꿔서 중첩기부 해결해야 함.
+    while (l && l->holder && cur_thread->priority > l->holder->priority) {
+        Thread *holder = l->holder;
+        // 홀더에게 우선순위를 기부
+        holder->priority = cur_thread->priority;
+
+        // 홀더의 기부자로 등록
+        list_insert_ordered(&holder->donation_list, &cur_thread->elem,
+                            is_high_priority, NULL);
+
+        /*
+        락을 소유하고 있지만 다른 애를 기다릴 수 있음.
+             -> 결론: 현재 내 자원의 lock을 소유하고 있지만 동시에 누군가를
+        기다릴 수있음
+             -> 중복기부를 해줘야함.
+             실행함수 -> 가 기다리는 락을 소유한 스레드 -> 가 기다리는 락을
+        소유한 스레드 -> ...
+        */
+        cur_thread = holder;
+        l = cur_thread->waiting_lock;
+    }
+
+    // 위에서 걸러지지 않음. (홀더보다 작다면 바로 여기로)
+
     sema_down(&lock->semaphore);
+    // 세마 다운이 성공하면 더이상 기다리는 것이 아니지...
+    cur_thread->waiting_lock = NULL;
     lock->holder = thread_current();
 }
 
@@ -218,6 +252,47 @@ void lock_release(struct lock *lock) {
     ASSERT(lock_held_by_current_thread(lock));
 
     lock->holder = NULL;
+
+    Thread *cur_thread = thread_current();
+
+    // donation list에서 동일한 lock을 기다리는 애 지워주기
+    while (!list_empty(&cur_thread->donation_list)) {
+        struct list_elem *front_of_list =
+            list_front(&cur_thread->donation_list);
+        Thread *donater = list_entry(front_of_list, Thread, elem);
+        if (donater->waiting_lock == lock) {
+            list_remove(front_of_list);
+        }
+
+        donater = list_next(&donater->elem);
+    }
+
+    // 우선순위
+    if (list_empty(&cur_thread->donation_list)) {
+        // donation list가 비었다면
+        // 과거 우선순위로 복귀
+        cur_thread->priority = cur_thread->old_priority;
+    } else {
+        // donation list가 비지 않았다면
+        // donation list에서 우선순위가 가장 높은 것을 가져오면 됨
+        /*
+        우선순위로 삽입을 하였음.
+            -> 우선순위가 바뀔 가능성 -> 가장 앞의 스레드의 우선순위
+        */
+        cur_thread->priority =
+            list_entry(list_front(&cur_thread->donation_list), Thread, elem)
+                ->priority;
+    }
+
+    // if (list_empty(&cur_thread->donation_list)) {
+    //     cur_thread->priority = cur_thread->old_priority;
+    // } else {
+    //     struct thread *max_donater = list_entry(
+    //         list_max(&cur_thread->donation_list, is_high_priority, NULL),
+    //         struct thread, elem);
+    //     cur_thread->priority = max_donater->priority;
+    // }
+
     sema_up(&lock->semaphore);
 }
 
@@ -275,7 +350,6 @@ bool is_high_priority_sema(const struct list_elem *a, const struct list_elem *b,
         list_entry(b, struct semaphore_elem, elem);
 
     // waiter가 안 비어도 waiters가 비었을 수도 있네....ㅋㅋㅋㅋ
-    // 위치가 여기보다 좋은 곳이 있을 것 같음. 일단 나중에...
     if (list_empty(&sema_elem_a->semaphore.waiters))
         return false;
 

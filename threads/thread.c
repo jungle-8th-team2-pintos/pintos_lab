@@ -212,11 +212,9 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
     t->tf.cs = SEL_KCSEG;
     t->tf.eflags = FLAG_IF;
 
-    /* Add to run queue. */
     thread_unblock(t);
 
-    if (t->priority > thread_current()->priority)
-        thread_yield();
+    thread_yield();
 
     return tid;
 }
@@ -315,17 +313,6 @@ void thread_set_priority(int new_priority) {
     // int old_priority = thread_current()->priority;
     thread_current()->priority = new_priority;
     thread_yield();
-
-    // 힘들게 짠 코드의 쓸모가 없어진 거 같다.
-    // 레디 리스트 앞이랑 비교한 후 yield
-    // if (new_priority < old_priority) {
-    //     if (!list_empty(&ready_list)) {
-    //         Thread *high_t =
-    //             list_entry(list_front(&ready_list), struct thread, elem);
-    //         if (high_t->priority > new_priority)
-    //             thread_yield();
-    //     }
-    // }
 }
 
 /* Returns the current thread's priority. */
@@ -412,6 +399,9 @@ static void init_thread(struct thread *t, const char *name, int priority) {
     t->tf.rsp = (uint64_t)t + PGSIZE - sizeof(void *);
     t->priority = priority;
     t->magic = THREAD_MAGIC;
+
+    // 우선순위 기부 추가 함수
+    t->old_priority = t->priority;
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
