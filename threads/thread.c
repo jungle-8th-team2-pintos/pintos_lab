@@ -62,6 +62,8 @@ static void init_thread(struct thread *, const char *name, int priority);
 static void do_schedule(int status);
 static void schedule(void);
 static tid_t allocate_tid(void);
+static bool priority_cmp(const struct list_elem *a, const struct list_elem *b,
+                         void *aux UNUSED);
 
 /* Returns true if T appears to point to a valid thread. */
 #define is_thread(t) ((t) != NULL && (t)->magic == THREAD_MAGIC)
@@ -199,6 +201,8 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
     /* Add to run queue. */
     thread_unblock(t);
 
+    thread_yield();
+
     return tid;
 }
 
@@ -230,8 +234,13 @@ void thread_unblock(struct thread *t) {
 
     old_level = intr_disable();
     ASSERT(t->status == THREAD_BLOCKED);
+    /*
     list_push_back(&ready_list, &t->elem);
+    */
+
+    list_insert_ordered(&ready_list, &t->elem, priority_cmp, NULL);
     t->status = THREAD_READY;
+
     intr_set_level(old_level);
 }
 
@@ -274,6 +283,15 @@ void thread_exit(void) {
     NOT_REACHED();
 }
 
+/* ready_list에 들어갈 때 우선순위 비교 */
+bool priority_cmp(const struct list_elem *a, const struct list_elem *b,
+                  void *aux UNUSED) {
+    struct thread *ta = list_entry(a, struct thread, elem);
+    struct thread *tb = list_entry(b, struct thread, elem);
+
+    return ta->priority > tb->priority;
+}
+
 /* Yields the CPU.  The current thread is not put to sleep and
    may be scheduled again immediately at the scheduler's whim. */
 void thread_yield(void) {
@@ -283,15 +301,27 @@ void thread_yield(void) {
     ASSERT(!intr_context());
 
     old_level = intr_disable();
-    if (curr != idle_thread)
+    if (curr != idle_thread) {
+        /*
         list_push_back(&ready_list, &curr->elem);
+        */
+        list_insert_ordered(&ready_list, &curr->elem, priority_cmp, NULL);
+    }
     do_schedule(THREAD_READY);
     intr_set_level(old_level);
 }
 
-/* Sets the current thread's priority to NEW_PRIORITY. */
+/* Sets the current thread's priority to NEW_PRIORITßY. */
 void thread_set_priority(int new_priority) {
-    thread_current()->priority = new_priority;
+    struct thread *curr = thread_current();
+    curr->priority = new_priority;
+
+    if (!list_empty(&ready_list)) {
+        struct thread *next =
+            list_entry(list_front(&ready_list), struct thread, elem);
+        if (next->priority > curr->priority)
+            thread_yield();
+    }
 }
 
 /* Returns the current thread's priority. */
@@ -377,6 +407,7 @@ static void init_thread(struct thread *t, const char *name, int priority) {
     strlcpy(t->name, name, sizeof t->name);
     t->tf.rsp = (uint64_t)t + PGSIZE - sizeof(void *);
     t->priority = priority;
+    t->original_priority = priority;
     t->magic = THREAD_MAGIC;
 }
 
