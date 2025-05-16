@@ -17,9 +17,6 @@
 #error TIMER_FREQ <= 1000 recommended
 #endif
 
-/* 슬립 리스트 */
-static struct list sleep_list;
-
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
 
@@ -44,8 +41,6 @@ void timer_init(void) {
     outb(0x40, count >> 8);
 
     intr_register_ext(0x20, timer_interrupt, "8254 Timer");
-
-    list_init(&sleep_list); // 슬립 리스트 초기화
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -88,8 +83,8 @@ int64_t timer_elapsed(int64_t then) { return timer_ticks() - then; }
 /* sleep_list에 넣을 우선순위를 비교 */
 bool sleep_cmp(const struct list_elem *a, const struct list_elem *b,
                void *aux UNUSED) {
-    struct thread *ta = list_entry(a, struct thread, elem);
-    struct thread *tb = list_entry(b, struct thread, elem);
+    struct thread *ta = list_entry(a, struct thread, ready_elem);
+    struct thread *tb = list_entry(b, struct thread, ready_elem);
 
     return ta->wake_up_tick < tb->wake_up_tick;
 }

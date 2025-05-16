@@ -71,8 +71,8 @@ static tid_t allocate_tid(void);
 /* Compares thread's wake-up ticks */
 bool compare_thread_wake_up(const struct list_elem *a,
                             const struct list_elem *b, void *aux UNUSED) {
-    struct thread *ta = list_entry(a, struct thread, elem);
-    struct thread *tb = list_entry(b, struct thread, elem);
+    struct thread *ta = list_entry(a, struct thread, ready_elem);
+    struct thread *tb = list_entry(b, struct thread, ready_elem);
 
     return ta->wake_up_tick < tb->wake_up_tick;
 }
@@ -88,8 +88,8 @@ bool compare_thread_donate_priority(const struct list_elem *a,
 
 bool compare_thread_priority(const struct list_elem *a,
                              const struct list_elem *b, void *aux UNUSED) {
-    struct thread *ta = list_entry(a, struct thread, elem);
-    struct thread *tb = list_entry(b, struct thread, elem);
+    struct thread *ta = list_entry(a, struct thread, ready_elem);
+    struct thread *tb = list_entry(b, struct thread, ready_elem);
 
     return ta->priority > tb->priority;
 }
@@ -172,8 +172,8 @@ void thread_sleep(int64_t ticks) {
     old_level = intr_disable();
     cur->wake_up_tick = ticks;
     if (cur != idle_thread) {
-        list_insert_ordered(&sleep_list, &cur->elem, compare_thread_wake_up,
-                            NULL);
+        list_insert_ordered(&sleep_list, &cur->ready_elem,
+                            compare_thread_wake_up, NULL);
     }
     do_schedule(THREAD_BLOCKED);
     intr_set_level(old_level);
@@ -182,7 +182,7 @@ void thread_sleep(int64_t ticks) {
 void thread_awake(int64_t ticks) {
     while (!list_empty(&sleep_list)) {
         struct thread *t =
-            list_entry(list_front(&sleep_list), struct thread, elem);
+            list_entry(list_front(&sleep_list), struct thread, ready_elem);
 
         if (t->wake_up_tick <= ticks) {
             list_pop_front(&sleep_list);
@@ -296,7 +296,8 @@ void thread_unblock(struct thread *t) {
 
     old_level = intr_disable();
     ASSERT(t->status == THREAD_BLOCKED);
-    list_insert_ordered(&ready_list, &t->elem, compare_thread_priority, NULL);
+    list_insert_ordered(&ready_list, &t->ready_elem, compare_thread_priority,
+                        NULL);
     t->status = THREAD_READY;
 
     intr_set_level(old_level);
@@ -345,7 +346,7 @@ void thread_exit(void) {
 void try_priority_yield() {
     if (!list_empty(&ready_list) &&
         thread_current()->priority <
-            list_entry(list_front(&ready_list), struct thread, elem)
+            list_entry(list_front(&ready_list), struct thread, ready_elem)
                 ->priority) {
         if (!intr_context()) {
             thread_yield();
@@ -363,8 +364,8 @@ void thread_yield(void) {
 
     old_level = intr_disable();
     if (curr != idle_thread) {
-        list_insert_ordered(&ready_list, &curr->elem, compare_thread_priority,
-                            NULL);
+        list_insert_ordered(&ready_list, &curr->ready_elem,
+                            compare_thread_priority, NULL);
     }
     do_schedule(THREAD_READY);
     intr_set_level(old_level);
@@ -489,7 +490,8 @@ static struct thread *next_thread_to_run(void) {
     if (list_empty(&ready_list))
         return idle_thread;
     else
-        return list_entry(list_pop_front(&ready_list), struct thread, elem);
+        return list_entry(list_pop_front(&ready_list), struct thread,
+                          ready_elem);
 }
 
 /* Use iretq to launch the thread */
@@ -597,8 +599,8 @@ static void do_schedule(int status) {
     ASSERT(intr_get_level() == INTR_OFF);
     ASSERT(thread_current()->status == THREAD_RUNNING);
     while (!list_empty(&destruction_req)) {
-        struct thread *victim =
-            list_entry(list_pop_front(&destruction_req), struct thread, elem);
+        struct thread *victim = list_entry(list_pop_front(&destruction_req),
+                                           struct thread, ready_elem);
         palloc_free_page(victim);
     }
     thread_current()->status = status;
@@ -633,7 +635,7 @@ static void schedule(void) {
            schedule(). */
         if (curr && curr->status == THREAD_DYING && curr != initial_thread) {
             ASSERT(curr != next);
-            list_push_back(&destruction_req, &curr->elem);
+            list_push_back(&destruction_req, &curr->ready_elem);
         }
 
         /* Before switching the thread, we first save the information
@@ -659,12 +661,14 @@ void donate_priority(void) {
     struct thread *cur = thread_current();
 
     for (depth = 0; depth < 8; depth++) {
-        if (!cur->wait_on_lock)
+        if (!cur->wait_on_lock) {
             break;
+        }
         struct thread *holder = cur->wait_on_lock->holder;
-        holder->priority = cur->priority;
-        cur = holder; // 원래는 우선순위가 낮았던 holder부터 실행을 해야하므로
-                      // cur를 holder로 바꿔서 지금 실행.
+        if (holder->priority < cur->priority) {
+            holder->priority = cur->priority;
+        }
+        cur = holder;
     }
 }
 
