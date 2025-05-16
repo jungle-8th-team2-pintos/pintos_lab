@@ -33,10 +33,20 @@ struct condition {
     struct list waiters; /* List of waiting threads. */
 };
 
+/* Structure of a semaphore element inside condition variable */
+struct semaphore_elem {
+    struct list_elem elem;
+    struct semaphore semaphore;
+};
+
 void cond_init(struct condition *);
 void cond_wait(struct condition *, struct lock *);
 void cond_signal(struct condition *, struct lock *);
 void cond_broadcast(struct condition *, struct lock *);
+
+// priority scheduling, sync
+bool compare_semaphore_priority(const struct list_elem *a,
+                                const struct list_elem *b, void *aux);
 
 /* Optimization barrier.
  *

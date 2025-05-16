@@ -2,6 +2,7 @@
 #define THREADS_THREAD_H
 
 #include "threads/interrupt.h"
+#include "threads/synch.h"
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
@@ -90,10 +91,21 @@ struct thread {
     enum thread_status status; /* Thread state. */
     char name[16];             /* Name (for debugging purposes). */
     int priority;              /* Priority. */
-    int64_t wake_up_tick;      /* 깨어날 시간 */
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem; /* List element. */
+
+    /* alaram wakeup tick*/
+    int64_t wake_up_tick;
+
+    // priority donation
+    int init_priority; // 최초 스레드 우선순위 저장.
+
+    struct lock
+        *wait_on_lock;     // 현재 스레드가 요청했는데 받지못한 lock. 기다리는중
+    struct list donations; // 자신에게 priority 를 나누어준 '쓰레드'의 리스트
+    struct list_elem donation_elem; // 위의 스레드 리스트를 관리하기위한
+                                    // element. thread 구조체의 elem과 구분.
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -102,6 +114,11 @@ struct thread {
 #ifdef VM
     /* Table for whole virtual memory owned by thread. */
     struct supplemental_page_table spt;
+    void *stack_bottom;
+    void *rsp_stack;
+#endif
+#ifdef EFILESYS
+    struct dir *wd;
 #endif
 
     /* Owned by thread.c. */
@@ -136,11 +153,34 @@ void thread_yield(void);
 int thread_get_priority(void);
 void thread_set_priority(int);
 
+void donate_priority(void);
+void remove_with_lock(struct lock *lock);
+void refresh_priority(void);
+
 int thread_get_nice(void);
 void thread_set_nice(int);
 int thread_get_recent_cpu(void);
 int thread_get_load_avg(void);
+bool compare_thread_priority(const struct list_elem *a,
+                             const struct list_elem *b, void *aux UNUSED);
 
 void do_iret(struct intr_frame *tf);
+
+// for alarm (timer.c)
+void thread_sleep(int64_t ticks);
+void thread_awake(int64_t ticks);
+
+// priority scheduling function
+void try_priority_yield(void);
+bool compare_thread_wake_up(const struct list_elem *a,
+                            const struct list_elem *b, void *aux UNUSED);
+
+// priority donation
+bool compare_thread_donate_priority(const struct list_elem *a,
+                                    const struct list_elem *b,
+                                    void *aux UNUSED);
+void donate_priority(void);
+void remove_with_lock(struct lock *lock);
+void refresh_priority(void);
 
 #endif /* threads/thread.h */

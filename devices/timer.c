@@ -96,27 +96,10 @@ bool sleep_cmp(const struct list_elem *a, const struct list_elem *b,
 
 /* Suspends execution for approximately TICKS timer ticks. */
 void timer_sleep(int64_t ticks) {
-    if (ticks <= 0) {
-        // printf("음수 꺼져");		//todo: 삭제
-        return;
-    }
+    int64_t start = timer_ticks();
 
     ASSERT(intr_get_level() == INTR_ON);
-
-    /*
-    while (timer_elapsed (start) < ticks)
-            thread_yield ();
-    */
-
-    enum intr_level old_level = intr_disable();
-
-    struct thread *curr = thread_current();
-    curr->wake_up_tick = timer_ticks() + ticks;
-
-    list_insert_ordered(&sleep_list, &curr->elem, sleep_cmp, NULL);
-    thread_block();
-
-    intr_set_level(old_level);
+    thread_sleep(start + ticks);
 }
 
 /* Suspends execution for approximately MS milliseconds. */
@@ -137,18 +120,7 @@ void timer_print_stats(void) {
 static void timer_interrupt(struct intr_frame *args UNUSED) {
     ticks++;
     thread_tick();
-
-    while (!list_empty(&sleep_list)) {
-        struct thread *t =
-            list_entry(list_front(&sleep_list), struct thread, elem);
-
-        if (t->wake_up_tick <= ticks) {
-            list_pop_front(&sleep_list);
-            thread_unblock(t);
-        } else {
-            break;
-        }
-    }
+    thread_awake(ticks);
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
