@@ -96,8 +96,10 @@ typedef struct thread {
     struct list donation_list;
     struct lock *waiting_lock;
 
-    //도네이션 리스트의 엘리먼트
-    // struct list_elem donation_elem;
+    struct list_elem donation_elem;
+
+    // 도네이션 리스트의 엘리먼트
+    //  struct list_elem donation_elem;
 
     int64_t wakeup_tick;
 
