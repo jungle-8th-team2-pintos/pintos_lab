@@ -233,6 +233,7 @@ int parse_arguments(char *file_name, char **argv) {
  * Returns -1 on fail. */
 int process_exec(void *f_name) {
     char *file_name = f_name;
+    char *fn_copy = file_name;
     bool success;
 
     /* We cannot use the intr_frame in the thread structure.
@@ -261,7 +262,7 @@ int process_exec(void *f_name) {
     /* If load failed, quit. */
 
     if (!success) {
-        palloc_free_page(file_name);
+        palloc_free_page(fn_copy);
         return -1;
     }
 
@@ -273,7 +274,7 @@ int process_exec(void *f_name) {
     _if.R.rdi = argc;
     _if.R.rsi = argv_addr;
 
-    palloc_free_page(file_name); // todo: Securely release memory
+    palloc_free_page(fn_copy);
 
     /* Start switched process. */
     do_iret(&_if);
