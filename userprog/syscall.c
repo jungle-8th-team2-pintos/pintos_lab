@@ -66,6 +66,9 @@ void syscall_handler(struct intr_frame *f UNUSED) {
         halt();
         break;
 
+    case SYS_CREATE:
+        create(f->R.rdi, f->R.rsi);
+        break;
     default:
         printf("Unknown syscall number: %lld\n", syscall_num);
         thread_exit();
@@ -91,3 +94,11 @@ void exit(int status) {
 }
 
 void halt(void) { power_off(); }
+
+bool create(const char *file, unsigned initial_size) {
+    if (file == NULL || strlen(file) == 0) {
+        exit(-1);
+    }
+
+    return filesys_create(file, initial_size);
+}
