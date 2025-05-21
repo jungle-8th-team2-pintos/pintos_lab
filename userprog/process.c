@@ -1,4 +1,5 @@
 #include "userprog/process.h"
+#include "devices/timer.h"
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
@@ -296,8 +297,7 @@ int process_wait(tid_t child_tid UNUSED) {
      * XXX:       implementing the process_wait. */
 
     // todo: This is temporary measure for test
-    for (int i = 0; i < 200000000; i++) {
-    }
+    timer_sleep(300);
     return -1;
 }
 

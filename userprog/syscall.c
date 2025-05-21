@@ -21,7 +21,7 @@
 
 void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
-bool validate_address(void *address);
+bool validate_user_address(void *address);
 
 /* System call.
  *
@@ -50,6 +50,7 @@ void syscall_init(void) {
 
 void syscall_handler(struct intr_frame *f UNUSED) {
     // The order of the arguments -> %rdi, %rsi, %rdx, %r10, %r8, %r9
+    // return value is f->eax
     // printf("[DEBUG] syscall_handler invoked! rax=%lld\n", f->R.rax);
 
     uint64_t syscall_num = f->R.rax;
@@ -68,18 +69,20 @@ void syscall_handler(struct intr_frame *f UNUSED) {
         break;
 
     case SYS_CREATE:
-        create(f->R.rdi, f->R.rsi);
+        f->R.rax = create(f->R.rdi, f->R.rsi);
         break;
+
     default:
         printf("Unknown syscall number: %lld\n", syscall_num);
         thread_exit();
     }
 }
 
-/* --------------validator--------------- */
+/* ---------------validator---------------- */
 
-bool validate_address(void *address) {
-    if (address == NULL || is_kernel_vaddr(address)) {
+bool validate_user_address(void *address) {
+    if (!is_user_vaddr(address) ||
+        pml4_get_page(thread_current()->pml4, address) == NULL) {
         return false;
     }
     return true;
@@ -108,9 +111,9 @@ void exit(int status) {
 void halt(void) { power_off(); }
 
 bool create(const char *file, unsigned initial_size) {
-    if (validate_address(file) || strlen(file) == 0) {
+    if (!validate_user_address(file)) {
         exit(-1);
     }
-
-    return filesys_create(file, initial_size);
+    bool result = filesys_create(file, initial_size);
+    return result;
 }
