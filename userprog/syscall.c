@@ -21,6 +21,7 @@
 
 void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
+bool validate_address(void *address);
 
 /* System call.
  *
@@ -75,6 +76,17 @@ void syscall_handler(struct intr_frame *f UNUSED) {
     }
 }
 
+/* --------------validator--------------- */
+
+bool validate_address(void *address) {
+    if (address == NULL || is_kernel_vaddr(address)) {
+        return false;
+    }
+    return true;
+}
+
+/* ---------------system call---------------*/
+
 // todo: This is temporary measure for test
 int write(int fd, const void *buffer, unsigned size) {
     const char *buf = buffer;
@@ -96,7 +108,7 @@ void exit(int status) {
 void halt(void) { power_off(); }
 
 bool create(const char *file, unsigned initial_size) {
-    if (file == NULL || strlen(file) == 0) {
+    if (validate_address(file) || strlen(file) == 0) {
         exit(-1);
     }
 
