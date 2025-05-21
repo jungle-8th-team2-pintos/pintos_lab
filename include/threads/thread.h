@@ -1,6 +1,7 @@
 #ifndef THREADS_THREAD_H
 #define THREADS_THREAD_H
 
+
 #include "threads/interrupt.h"
 #include "threads/synch.h"
 #include <debug.h>
@@ -19,7 +20,7 @@ enum thread_status {
 };
 
 /* Thread identifier type.
-   You can redefine this to whatever type you like. */
+You can redefine this to whatever type you like. */
 typedef int tid_t;
 #define TID_ERROR ((tid_t) - 1) /* Error value for tid_t. */
 
@@ -27,6 +28,8 @@ typedef int tid_t;
 #define PRI_MIN 0      /* Lowest priority. */
 #define PRI_DEFAULT 31 /* Default priority. */
 #define PRI_MAX 63     /* Highest priority. */
+
+#define USERPROG
 
 /* A kernel thread or user process.
  *
@@ -102,7 +105,7 @@ struct thread {
     int init_priority; // 최초 스레드 우선순위 저장.
 
     struct lock
-        *wait_on_lock;     // 현재 스레드가 요청했는데 받지못한 lock. 기다리는중
+        *wait_on_lock; // 현재 스레드가 요청했는데 받지못한 lock. 기다리는중
     struct list donations; // 자신에게 priority 를 나누어준 '쓰레드'의 리스트
     struct list_elem donation_elem; // 위의 스레드 리스트를 관리하기위한
                                     // element. thread 구조체의 elem과 구분.
@@ -110,6 +113,7 @@ struct thread {
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint64_t *pml4; /* Page map level 4 */
+
 #endif
 #ifdef VM
     /* Table for whole virtual memory owned by thread. */
