@@ -48,7 +48,7 @@ void syscall_init(void) {
 }
 
 void syscall_handler(struct intr_frame *f UNUSED) {
-
+    // The order of the arguments -> %rdi, %rsi, %rdx, %r10, %r8, %r9
     // printf("[DEBUG] syscall_handler invoked! rax=%lld\n", f->R.rax);
 
     uint64_t syscall_num = f->R.rax;
@@ -60,6 +60,10 @@ void syscall_handler(struct intr_frame *f UNUSED) {
 
     case SYS_EXIT:
         exit(f->R.rdi);
+        break;
+
+    case SYS_HALT:
+        halt();
         break;
 
     default:
@@ -85,3 +89,5 @@ void exit(int status) {
     printf("%s: exit(%d)\n", thread_name(), status);
     thread_exit();
 }
+
+void halt(void) { power_off(); }
