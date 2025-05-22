@@ -50,7 +50,7 @@ void syscall_init(void) {
 
 void syscall_handler(struct intr_frame *f UNUSED) {
     // The order of the arguments -> %rdi, %rsi, %rdx, %r10, %r8, %r9
-    // return value is f->eax
+    // return value is f->rax
     // printf("[DEBUG] syscall_handler invoked! rax=%lld\n", f->R.rax);
 
     uint64_t syscall_num = f->R.rax;
@@ -70,6 +70,10 @@ void syscall_handler(struct intr_frame *f UNUSED) {
 
     case SYS_CREATE:
         f->R.rax = create(f->R.rdi, f->R.rsi);
+        break;
+
+    case SYS_OPEN:
+        f->R.rax = open(f->R.rdi);
         break;
 
     default:
@@ -115,5 +119,22 @@ bool create(const char *file, unsigned initial_size) {
         exit(-1);
     }
     bool result = filesys_create(file, initial_size);
+
     return result;
 }
+
+int open(const char *file) {
+    if (!validate_user_address(file)) {
+        exit(-1);
+    }
+
+    struct file *f = filesys_open(file);
+    if (f == NULL) {
+        return -1;
+    }
+
+    int fd = allocate_fd(f);
+    return fd;
+}
+
+/*------------ helper function-----------*/

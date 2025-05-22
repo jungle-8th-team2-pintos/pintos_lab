@@ -27,6 +27,7 @@ typedef int tid_t;
 #define PRI_MIN 0      /* Lowest priority. */
 #define PRI_DEFAULT 31 /* Default priority. */
 #define PRI_MAX 63     /* Highest priority. */
+#define FD_MAX 128
 
 /* A kernel thread or user process.
  *
@@ -106,6 +107,9 @@ struct thread {
     struct list donations; // 자신에게 priority 를 나누어준 '쓰레드'의 리스트
     struct list_elem donation_elem; // 위의 스레드 리스트를 관리하기위한
                                     // element. thread 구조체의 elem과 구분.
+
+    struct file *fd_table[FD_MAX];
+    int fd_idx;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */

@@ -338,6 +338,22 @@ static void process_cleanup(void) {
     }
 }
 
+/* Find and assign an empty number in fdt */
+int allocate_fd(struct file *file) {
+    struct thread *cur = thread_current();
+    struct file **fdt = cur->fd_table;
+
+    while (cur->fd_idx < FD_MAX && fdt[cur->fd_idx]) {
+        cur->fd_idx++;
+    }
+    // error. fd table full
+    if (cur->fd_idx >= FD_MAX) {
+        return -1;
+    }
+    fdt[cur->fd_idx] = file;
+    return cur->fd_idx;
+}
+
 /* Sets up the CPU for running user code in the nest thread.
  * This function is called on every context switch. */
 void process_activate(struct thread *next) {
