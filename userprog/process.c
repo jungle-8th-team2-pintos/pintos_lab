@@ -342,17 +342,13 @@ static void process_cleanup(void) {
 /* Find and assign an empty number in fdt */
 int process_allocate_fd(struct file *file) {
     struct thread *cur = thread_current();
-    struct file **fdt = cur->fd_table;
-
-    while (cur->fd_idx < FD_MAX && fdt[cur->fd_idx]) {
-        cur->fd_idx++;
+    for (int i = 2; i < FD_MAX; i++) {
+        if (cur->fd_table[i] == NULL) {
+            cur->fd_table[i] = file;
+            return i;
+        }
     }
-    // error. fd table full
-    if (cur->fd_idx >= FD_MAX) {
-        return -1;
-    }
-    fdt[cur->fd_idx] = file;
-    return cur->fd_idx;
+    return -1;
 }
 
 void process_close_file(int fd) {
@@ -361,6 +357,14 @@ void process_close_file(int fd) {
         file_close(t->fd_table[fd]);
         t->fd_table[fd] = NULL;
     }
+}
+
+struct file *process_get_file(int fd) {
+    struct thread *t = thread_current();
+    if (fd < 0 || fd >= FD_MAX) {
+        return NULL;
+    }
+    return t->fd_table[fd];
 }
 
 /*---------------------------------*/

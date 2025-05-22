@@ -11,5 +11,6 @@ void process_exit(void);
 void process_activate(struct thread *next);
 int process_allocate_fd(struct file *file);
 void process_close_file(int fd);
+struct file *process_get_file(int fd);
 
 #endif /* userprog/process.h */

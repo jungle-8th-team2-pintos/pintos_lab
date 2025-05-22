@@ -80,6 +80,14 @@ void syscall_handler(struct intr_frame *f UNUSED) {
         close(f->R.rdi);
         break;
 
+    case SYS_FILESIZE:
+        f->R.rax = filesize(f->R.rdi);
+        break;
+
+    case SYS_READ:
+        f->R.rax = read(f->R.rdi, f->R.rsi, f->R.rdx);
+        break;
+
     default:
         printf("Unknown syscall number: %lld\n", syscall_num);
         thread_exit();
@@ -96,10 +104,20 @@ bool validate_user_address(void *address) {
     return true;
 }
 
+bool validate_fd(int fd) { return !(fd < 0 || fd >= FD_MAX); }
+
 /* ---------------system call---------------*/
 
 // todo: This is temporary measure for test
 int write(int fd, const void *buffer, unsigned size) {
+    if (!validate_user_address(buffer)) {
+        exit(-1);
+    }
+
+    if (!validate_fd(fd)) {
+        return -1;
+    }
+
     const char *buf = buffer;
 
     if (fd == 1) {
@@ -108,7 +126,14 @@ int write(int fd, const void *buffer, unsigned size) {
         }
         return size;
     }
-    return -1;
+
+    struct file *f = process_get_file(fd);
+
+    if (f == NULL) {
+        return -1;
+    }
+
+    return file_write(f, buffer, size);
 }
 
 void exit(int status) {
@@ -133,6 +158,7 @@ int open(const char *file) {
     }
 
     struct file *f = filesys_open(file);
+
     if (f == NULL) {
         return -1;
     }
@@ -142,5 +168,42 @@ int open(const char *file) {
 }
 
 void close(int fd) { process_close_file(fd); }
+
+int filesize(int fd) {
+
+    if (!validate_fd(fd)) {
+        return -1;
+    }
+
+    struct file *f = process_get_file(fd);
+
+    if (f == NULL) {
+        return -1;
+    }
+
+    return file_length(f);
+}
+
+int read(int fd, void *buffer, unsigned size) {
+    if (!validate_user_address(buffer)) {
+        exit(-1);
+    }
+
+    if (!validate_fd(fd)) {
+        return -1;
+    }
+
+    if (fd == 0) {
+        // todo: stdin 처리
+    }
+
+    struct file *f = process_get_file(fd);
+
+    if (f == NULL) {
+        return -1;
+    }
+
+    return file_read(f, buffer, size);
+}
 
 /*------------ helper function-----------*/

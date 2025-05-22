@@ -109,7 +109,6 @@ struct thread {
                                     // element. thread 구조체의 elem과 구분.
 
     struct file *fd_table[FD_MAX];
-    int fd_idx;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
