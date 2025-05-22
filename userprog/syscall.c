@@ -76,6 +76,10 @@ void syscall_handler(struct intr_frame *f UNUSED) {
         f->R.rax = open(f->R.rdi);
         break;
 
+    case SYS_CLOSE:
+        close(f->R.rdi);
+        break;
+
     default:
         printf("Unknown syscall number: %lld\n", syscall_num);
         thread_exit();
@@ -133,8 +137,10 @@ int open(const char *file) {
         return -1;
     }
 
-    int fd = allocate_fd(f);
+    int fd = process_allocate_fd(f);
     return fd;
 }
+
+void close(int fd) { process_close_file(fd); }
 
 /*------------ helper function-----------*/

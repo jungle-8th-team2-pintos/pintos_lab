@@ -337,9 +337,10 @@ static void process_cleanup(void) {
         pml4_destroy(pml4);
     }
 }
+/* ------------- fd -----------------*/
 
 /* Find and assign an empty number in fdt */
-int allocate_fd(struct file *file) {
+int process_allocate_fd(struct file *file) {
     struct thread *cur = thread_current();
     struct file **fdt = cur->fd_table;
 
@@ -353,6 +354,16 @@ int allocate_fd(struct file *file) {
     fdt[cur->fd_idx] = file;
     return cur->fd_idx;
 }
+
+void process_close_file(int fd) {
+    struct thread *t = thread_current();
+    if (fd >= 0 && fd < FD_MAX && t->fd_table[fd] != NULL) {
+        file_close(t->fd_table[fd]);
+        t->fd_table[fd] = NULL;
+    }
+}
+
+/*---------------------------------*/
 
 /* Sets up the CPU for running user code in the nest thread.
  * This function is called on every context switch. */
