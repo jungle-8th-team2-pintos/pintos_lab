@@ -109,6 +109,13 @@ struct thread {
                                     // element. thread 구조체의 elem과 구분.
 
     struct file *fd_table[FD_MAX];
+    struct intr_frame parent_if;
+    int exit_status;
+    struct semaphore fork_sema;
+    struct list child_list;
+    struct list_elem child_elem;
+    struct semaphore wait_sema;
+    struct semaphore free_sema;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */

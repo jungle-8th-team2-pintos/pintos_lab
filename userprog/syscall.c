@@ -88,6 +88,14 @@ void syscall_handler(struct intr_frame *f UNUSED) {
         f->R.rax = read(f->R.rdi, f->R.rsi, f->R.rdx);
         break;
 
+    case SYS_FORK:
+        f->R.rax = fork(f->R.rdi, f);
+        break;
+
+    case SYS_WAIT:
+        f->R.rax = wait(f->R.rdi);
+        break;
+
     default:
         printf("Unknown syscall number: %lld\n", syscall_num);
         thread_exit();
@@ -108,7 +116,6 @@ bool validate_fd(int fd) { return !(fd < 0 || fd >= FD_MAX); }
 
 /* ---------------system call---------------*/
 
-// todo: This is temporary measure for test
 int write(int fd, const void *buffer, unsigned size) {
     if (!validate_user_address(buffer)) {
         exit(-1);
@@ -137,6 +144,8 @@ int write(int fd, const void *buffer, unsigned size) {
 }
 
 void exit(int status) {
+    struct thread *cur = thread_current();
+    cur->exit_status = status;
     printf("%s: exit(%d)\n", thread_name(), status);
     thread_exit();
 }
@@ -205,5 +214,14 @@ int read(int fd, void *buffer, unsigned size) {
 
     return file_read(f, buffer, size);
 }
+
+tid_t fork(const char *thread_name, struct intr_frame *f) {
+    if (!validate_user_address(thread_name)) {
+        exit(-1);
+    }
+    return process_fork(thread_name, f);
+}
+
+int wait(pid_t pid) { return process_wait(pid); }
 
 /*------------ helper function-----------*/
