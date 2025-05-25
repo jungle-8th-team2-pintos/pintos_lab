@@ -2,7 +2,6 @@
 #define THREADS_THREAD_H
 
 #include "threads/interrupt.h"
-#include "threads/synch.h"
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
@@ -95,8 +94,8 @@ struct thread {
     /* Shared between thread.c and synch.c. */
     struct list_elem ready_elem; /* List element. */
 
-    /* alaram wakeup tick*/
-    int64_t wake_up_tick;
+    /* alarm wakeup tick*/
+    int64_t wake_up_tick; /*sleep 상태를 위한 timer 정보 추가*/
 
     // priority donation
     int init_priority; // 최초 스레드 우선순위 저장.
@@ -107,6 +106,11 @@ struct thread {
     struct list_elem donation_elem; // 위의 스레드 리스트를 관리하기위한
                                     // element. thread 구조체의 elem과 구분.
 
+    int exit_status; /* 이 스레드가 exit() 로 전달한 종료 상태 */
+
+    struct file *fd_table[128]; /* fd → struct file* 매핑 */
+    int next_fd;                /* 다음에 할당할 fd 번호 (0,1은 stdin/stdout) */
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint64_t *pml4; /* Page map level 4 */
@@ -114,11 +118,6 @@ struct thread {
 #ifdef VM
     /* Table for whole virtual memory owned by thread. */
     struct supplemental_page_table spt;
-    void *stack_bottom;
-    void *rsp_stack;
-#endif
-#ifdef EFILESYS
-    struct dir *wd;
 #endif
 
     /* Owned by thread.c. */
@@ -153,15 +152,11 @@ void thread_yield(void);
 int thread_get_priority(void);
 void thread_set_priority(int);
 
-void donate_priority(void);
-void remove_with_lock(struct lock *lock);
-void refresh_priority(void);
-
 int thread_get_nice(void);
 void thread_set_nice(int);
 int thread_get_recent_cpu(void);
 int thread_get_load_avg(void);
-bool compare_thread_priority(const struct list_elem *a,
+bool thread_compare_priority(const struct list_elem *a,
                              const struct list_elem *b, void *aux UNUSED);
 
 void do_iret(struct intr_frame *tf);
@@ -172,11 +167,11 @@ void thread_awake(int64_t ticks);
 
 // priority scheduling function
 void try_priority_yield(void);
-bool compare_thread_wake_up(const struct list_elem *a,
+bool thread_compare_wake_up(const struct list_elem *a,
                             const struct list_elem *b, void *aux UNUSED);
 
 // priority donation
-bool compare_thread_donate_priority(const struct list_elem *a,
+bool thread_compare_donate_priority(const struct list_elem *a,
                                     const struct list_elem *b,
                                     void *aux UNUSED);
 void donate_priority(void);
