@@ -2,6 +2,7 @@
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 #include "intrinsic.h"
+#include "lib/util.h"
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/loader.h"
@@ -96,6 +97,10 @@ void syscall_handler(struct intr_frame *f UNUSED) {
         f->R.rax = wait(f->R.rdi);
         break;
 
+    case SYS_EXEC:
+        f->R.rax = exec(f->R.rdi);
+        break;
+
     default:
         printf("Unknown syscall number: %lld\n", syscall_num);
         thread_exit();
@@ -107,6 +112,13 @@ void syscall_handler(struct intr_frame *f UNUSED) {
 bool validate_user_address(void *address) {
     if (!is_user_vaddr(address) ||
         pml4_get_page(thread_current()->pml4, address) == NULL) {
+        return false;
+    }
+    return true;
+}
+
+bool validate_kernel_address(void *address) {
+    if (!is_kernel_vaddr(address)) {
         return false;
     }
     return true;
@@ -223,5 +235,18 @@ tid_t fork(const char *thread_name, struct intr_frame *f) {
 }
 
 int wait(pid_t pid) { return process_wait(pid); }
+
+int exec(const char *cmd_line) {
+    if (!validate_kernel_address(cmd_line)) {
+        exit(-1);
+    }
+
+    struct thread *cur = thread_current();
+
+    char *file_name = extract_program_name(cmd_line);
+    strlcpy(cur->name, file_name);
+
+    return process_exec(cmd_line);
+}
 
 /*------------ helper function-----------*/

@@ -4,6 +4,7 @@
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 #include "intrinsic.h"
+#include "lib/util.h"
 #include "threads/flags.h"
 #include "threads/init.h"
 #include "threads/interrupt.h"
@@ -49,8 +50,7 @@ tid_t process_create_initd(const char *file_name) {
     strlcpy(fn_copy, file_name, PGSIZE);
 
     // Extract process name
-    char *save_ptr;
-    char *prog_name = strtok_r(file_name, " ", &save_ptr);
+    char *prog_name = extract_program_name(file_name);
 
     /* Create a new thread to execute FILE_NAME. */
     tid = thread_create(prog_name, PRI_DEFAULT, initd, fn_copy);
@@ -220,8 +220,6 @@ error:
     thread_exit();
 }
 
-#define MAX_ARGS 64
-
 /*
   Final user stack layout (top to bottom):
 
@@ -277,9 +275,6 @@ void setup_argument_stack(char **argv, int argc, void **rsp_ptr,
     *(uint64_t *)rsp = 0;
 
     *rsp_ptr = rsp;
-
-    // printf("[DEBUG] final rsp = %p\n", rsp);
-    // printf("[DEBUG] argv_addr = %p\n", (void *)*argv_addr_out);
 }
 
 int parse_arguments(char *file_name, char **argv) {
@@ -318,13 +313,13 @@ int process_exec(void *f_name) {
 #endif
 
     char *argv[MAX_ARGS];
+
     int argc = parse_arguments(file_name, argv);
 
     file_name = argv[0];
 
-    /* And then load the binary */
+    /* And "then load the binary */
     success = load(file_name, &_if);
-
     /* If load failed, quit. */
 
     if (!success) {
