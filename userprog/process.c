@@ -54,12 +54,13 @@ tid_t process_create_initd(const char *file_name) {
     // char *argv[128];
     // int argc = 0;
 
-    // char *picked;
-    // char *other;
+    char *picked;
+    char *other;
 
     // printf("파일이름 출력: %s\n", file_name);
 
     // picked = strtok_r(file_name, " ", &other);
+    strtok_r(file_name, " ", &other);
 
     // printf("argv[%d] 출력: %s\n", argc, picked);
 
@@ -247,7 +248,7 @@ int process_exec(void *f_name) {
     }
     // 마지막 값 0
     _if.rsp -= 8;
-    *(char **)_if.rsp = NULL;
+    *(char **)_if.rsp = 0;
 
     // 포인터
     for (int i = argc - 1; i >= 0; i--) {
@@ -275,7 +276,7 @@ int process_exec(void *f_name) {
 
     palloc_free_page(file_name);
 
-    hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
+    // hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
     /* 5) 사용자 모드로 진입 */
     do_iret(&_if);
     NOT_REACHED();
@@ -294,6 +295,9 @@ int process_wait(tid_t child_tid UNUSED) {
     /* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
      * XXX:       to add infinite loop here before
      * XXX:       implementing the process_wait. */
+
+    for (int i = 0; i < 2000000000; i++) {
+    }
     return -1;
 }
 
