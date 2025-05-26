@@ -36,7 +36,10 @@ bool validate_user_address(void *address);
 #define MSR_LSTAR 0xc0000082        /* Long mode SYSCALL target */
 #define MSR_SYSCALL_MASK 0xc0000084 /* Mask for the eflags */
 
+struct lock file_rw_lock;
+
 void syscall_init(void) {
+    lock_init(&file_rw_lock);
     write_msr(MSR_STAR,
               ((uint64_t)SEL_UCSEG - 0x10) << 48 | ((uint64_t)SEL_KCSEG) << 32);
     write_msr(MSR_LSTAR, (uint64_t)syscall_entry);
@@ -102,6 +105,10 @@ void syscall_handler(struct intr_frame *f UNUSED) {
         }
         break;
 
+    case SYS_SEEK:
+        seek(f->R.rdi, f->R.rsi);
+        break;
+
     default:
         printf("Unknown syscall number: %lld\n", syscall_num);
         thread_exit();
@@ -133,7 +140,6 @@ int write(int fd, const void *buffer, unsigned size) {
     if (!validate_user_address(buffer)) {
         exit(-1);
     }
-
     if (!validate_fd(fd)) {
         return -1;
     }
@@ -153,7 +159,11 @@ int write(int fd, const void *buffer, unsigned size) {
         return -1;
     }
 
-    return file_write(f, buffer, size);
+    lock_acquire(&file_rw_lock);
+    int write_result = file_write(f, buffer, size);
+    lock_release(&file_rw_lock);
+
+    return write_result;
 }
 
 void exit(int status) {
@@ -225,7 +235,11 @@ int read(int fd, void *buffer, unsigned size) {
         return -1;
     }
 
-    return file_read(f, buffer, size);
+    lock_acquire(&file_rw_lock);
+    int result = file_read(f, buffer, size);
+    lock_release(&file_rw_lock);
+
+    return result;
 }
 
 tid_t fork(const char *thread_name, struct intr_frame *f) {
@@ -253,6 +267,15 @@ int exec(const char *cmd_line) {
 
     int result = process_exec(copy_name);
     return result;
+}
+
+void seek(int fd, unsigned position) {
+    if (fd <= 1) { // 0: 표준입력, 1: 표준 출력
+        return;
+    }
+
+    struct file *f = process_get_file(fd);
+    file_seek(f, position);
 }
 
 /*------------ helper function-----------*/

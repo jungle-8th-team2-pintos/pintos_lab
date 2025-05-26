@@ -296,22 +296,17 @@ int parse_arguments(char *file_name, char **argv) {
     return argc;
 }
 
-/* Switch the current execution context to the f_name.
- * Returns -1 on fail. */
 int process_exec(void *f_name) {
-    char *file_name = f_name;
-    char *fn_copy = file_name;
-    bool success;
+    char *fn_copy = palloc_get_page(0);
+    if (fn_copy == NULL)
+        return -1;
+    strlcpy(fn_copy, f_name, PGSIZE);
 
-    /* We cannot use the intr_frame in the thread structure.
-     * This is because when current thread rescheduled,
-     * it stores the execution information to the member. */
     struct intr_frame _if;
     _if.ds = _if.es = _if.ss = SEL_UDSEG;
     _if.cs = SEL_UCSEG;
     _if.eflags = FLAG_IF | FLAG_MBS;
 
-    /* We first kill the current context */
     process_cleanup();
 
 #ifdef VM
@@ -319,15 +314,10 @@ int process_exec(void *f_name) {
 #endif
 
     char *argv[MAX_ARGS];
+    int argc = parse_arguments(fn_copy, argv);
+    char *file_name = argv[0];
 
-    int argc = parse_arguments(file_name, argv);
-
-    file_name = argv[0];
-
-    /* And "then load the binary */
-    success = load(file_name, &_if);
-    /* If load failed, quit. */
-
+    bool success = load(file_name, &_if);
     if (!success) {
         palloc_free_page(fn_copy);
         return -1;
@@ -336,18 +326,67 @@ int process_exec(void *f_name) {
     uint64_t argv_addr;
     void *rsp = (void *)_if.rsp;
     setup_argument_stack(argv, argc, &rsp, &argv_addr);
-
     _if.rsp = (uintptr_t)rsp;
     _if.R.rdi = argc;
     _if.R.rsi = argv_addr;
 
     palloc_free_page(fn_copy);
 
-    /* Start switched process. */
-
     do_iret(&_if);
     NOT_REACHED();
 }
+
+// // /* Switch the current execution context to the f_name.
+// //  * Returns -1 on fail. */
+// int process_exec(void *f_name) {
+//     char *fn_copy = palloc_get_page(0);
+//     if (fn_copy == NULL)
+//         return -1;
+//     strlcpy(fn_copy, f_name, PGSIZE);
+
+//     /* We cannot use the intr_frame in the thread structure.
+//      * This is because when current thread rescheduled,
+//      * it stores the execution information to the member. */
+//     struct intr_frame _if;
+//     _if.ds = _if.es = _if.ss = SEL_UDSEG;
+//     _if.cs = SEL_UCSEG;
+//     _if.eflags = FLAG_IF | FLAG_MBS;
+
+//     process_cleanup();
+
+// #ifdef VM
+//     supplemental_page_table_init(&thread_current()->spt);
+// #endif
+
+//     char *argv[MAX_ARGS];
+//     int argc = parse_arguments(fn_copy, argv);
+//     char *file_name = argv[0];
+
+//     /* And then load the binary */
+//     bool success = load(file_name, &_if);
+
+//     /* If load failed, quit. */
+//     if (!success) {
+//         palloc_free_page(fn_copy);
+//         return -1;
+//     }
+
+//     uint64_t argv_addr;
+//     void *rsp = (void *)_if.rsp;
+//     setup_argument_stack(argv, argc, &rsp, &argv_addr);
+
+//     /* We cannot use the intr_frame in the thread structure.
+//      * This is because when current thread rescheduled,
+//      * it stores the execution information to the member. */
+//     _if.rsp = (uintptr_t)rsp;
+//     _if.R.rdi = argc;
+//     _if.R.rsi = argv_addr;
+
+//     palloc_free_page(fn_copy);
+
+//     do_iret(&_if);
+//     NOT_REACHED();
+// }
 
 /* Waits for thread TID to die and returns its exit status.  If
  * it was terminated by the kernel (i.e. killed due to an
@@ -390,7 +429,7 @@ void process_exit(void) {
     for (int i = 0; i < FD_MAX; i++) {
         close(i);
     }
-
+    file_close(cur->exec_file);
     process_cleanup();
 
     sema_up(&cur->fork_sema);
@@ -548,6 +587,8 @@ static bool load(const char *file_name, struct intr_frame *if_) {
         printf("load: %s: open failed\n", file_name);
         goto done;
     }
+    t->exec_file = file;
+    file_deny_write(file);
 
     /* Read and verify executable header. */
     if (file_read(file, &ehdr, sizeof ehdr) != sizeof ehdr ||
@@ -625,7 +666,6 @@ static bool load(const char *file_name, struct intr_frame *if_) {
 
 done:
     /* We arrive here whether the load is successful or not. */
-    file_close(file);
     return success;
 }
 
