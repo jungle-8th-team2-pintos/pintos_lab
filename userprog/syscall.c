@@ -2,7 +2,6 @@
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 #include "intrinsic.h"
-#include "lib/util.h"
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/loader.h"
@@ -98,7 +97,9 @@ void syscall_handler(struct intr_frame *f UNUSED) {
         break;
 
     case SYS_EXEC:
-        f->R.rax = exec(f->R.rdi);
+        if (exec(f->R.rdi) == -1) {
+            exit(-1);
+        }
         break;
 
     default:
@@ -237,16 +238,21 @@ tid_t fork(const char *thread_name, struct intr_frame *f) {
 int wait(pid_t pid) { return process_wait(pid); }
 
 int exec(const char *cmd_line) {
-    if (!validate_kernel_address(cmd_line)) {
+    if (!validate_user_address(cmd_line)) {
         exit(-1);
     }
 
     struct thread *cur = thread_current();
 
-    char *file_name = extract_program_name(cmd_line);
-    strlcpy(cur->name, file_name);
+    // 커널 메모리로 복사
+    char *copy_name = palloc_get_page(PAL_ZERO);
+    if (copy_name == NULL) {
+        exit(-1);
+    }
+    strlcpy(copy_name, cmd_line, PGSIZE);
 
-    return process_exec(cmd_line);
+    int result = process_exec(copy_name);
+    return result;
 }
 
 /*------------ helper function-----------*/

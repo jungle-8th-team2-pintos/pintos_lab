@@ -4,7 +4,6 @@
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 #include "intrinsic.h"
-#include "lib/util.h"
 #include "threads/flags.h"
 #include "threads/init.h"
 #include "threads/interrupt.h"
@@ -38,6 +37,13 @@ static void process_init(void) { struct thread *current = thread_current(); }
  * before process_create_initd() returns. Returns the initd's
  * thread id, or TID_ERROR if the thread cannot be created.
  * Notice that THIS SHOULD BE CALLED ONCE. */
+
+char *extract_program_name(const char *cmdline) {
+    char *save_ptr;
+    char *prog_name = strtok_r(cmdline, " ", &save_ptr);
+    return cmdline;
+}
+
 tid_t process_create_initd(const char *file_name) {
     char *fn_copy;
     tid_t tid;
@@ -338,6 +344,7 @@ int process_exec(void *f_name) {
     palloc_free_page(fn_copy);
 
     /* Start switched process. */
+
     do_iret(&_if);
     NOT_REACHED();
 }
