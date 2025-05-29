@@ -30,7 +30,7 @@ typedef int tid_t;
 
 #define USERPROG
 
-#define FD_MAX 200
+#define FD_MAX 60
 
 /* A kernel thread or user process.
  *
@@ -102,7 +102,7 @@ struct thread {
     /* alaram wakeup tick*/
     int64_t wake_up_tick;
 
-    // priority donation
+    // for Priority Donation
     int init_priority; // 최초 스레드 우선순위 저장.
 
     struct lock
@@ -111,8 +111,21 @@ struct thread {
     struct list_elem donation_elem; // 위의 스레드 리스트를 관리하기위한
                                     // element. thread 구조체의 elem과 구분.
 
+    // for FD
     struct file *fdt[FD_MAX];
     int pas_fd;
+
+    // for Fork
+    struct intr_frame saved_if;
+
+    struct list children;
+    struct list_elem child_elem;
+
+    struct semaphore wait_sema;
+    struct semaphore exit_sema;
+    struct semaphore fork_sema;
+
+    int exit_status;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
